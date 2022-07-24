@@ -3,13 +3,13 @@
 #include <vector>
 // DirectXヘッダー/dxgiライブラリ インクルード&リンク
 #include <d3d12.h>
-#include <dxgi1_6.h>   // 誤動作する場合は1_4にしてみる
+#include <dxgi1_6.h>       // 誤動作する場合は1_4にしてみる
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
-
 #ifdef _DEBUG
 #include <iostream>
 #endif
+#include <DirectXMath.h>   // 数学ライブラリ
 
 using namespace std;
 
@@ -240,6 +240,60 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	// ウィンドウ表示
 	ShowWindow(hwnd, SW_SHOW);
+
+	// 頂点の生成
+	// 時計回りになるように頂点を定義
+	DirectX::XMFLOAT3 vertices[] =
+	{
+		{ -1.0f, -1.0f, 0.0f },   // 左下
+		{ -1.0f,  1.0f, 0.0f },   // 左上
+		{  1.0f, -1.0f, 0.0f },   // 右下
+	};
+	// 頂点バッファ生成用のデータ群を生成
+	// ヒーププロパティ
+	D3D12_HEAP_PROPERTIES heapProp = {};
+	heapProp.Type = D3D12_HEAP_TYPE_UPLOAD;                       // CPUへのアクセス制限なし その分遅い
+	heapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;   // HEAP_TYPEがCUSTOM以外ならUNKNOWNでよい
+	heapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;    // HEAP_TYPEがCUSTOM以外ならUNKNOWNでよい
+	// リソース設定構造体
+	D3D12_RESOURCE_DESC resourceDesc = {};
+	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;     // バッファとして使用するためBUFFERでよい
+	resourceDesc.Width = sizeof(vertices);                        // 頂点バッファであるため情報は幅に詰める
+	resourceDesc.Height = 1;                                      // 画像データではないため1でよい
+	resourceDesc.DepthOrArraySize = 1;
+	resourceDesc.MipLevels = 1;
+	resourceDesc.Format = DXGI_FORMAT_UNKNOWN;                    // 画像ではないためUNKNOWNでよい
+	resourceDesc.SampleDesc.Count = 1;                            // 0だとデータが存在しないことになるため1
+	resourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;         // テクスチャレイアウトだが、ROW_MAJORとしておく
+
+	// 頂点バッファの生成
+	ID3D12Resource* vertBuffer = nullptr;
+	result = dev->CreateCommittedResource
+	(
+		&heapProp,                           // ヒープ設定構造体アドレス
+		D3D12_HEAP_FLAG_NONE,
+		&resourceDesc,                       // リソース設定構造体アドレス
+		D3D12_RESOURCE_STATE_GENERIC_READ,   // GPU側からは読み取り専用
+		nullptr,                             // 未使用
+		IID_PPV_ARGS(&vertBuffer)
+	);
+
+	// 頂点バッファに頂点情報コピー
+	DirectX::XMFLOAT3* vertMap = nullptr;
+	result = vertBuffer->Map(0, nullptr, (void**)&vertMap);         // バッファの仮想アドレス取得
+	std::copy(std::begin(vertices), std::end(vertices), vertMap);   // マップに頂点情報コピー
+	vertBuffer->Unmap(0, nullptr);                                  // 情報コピーし終えたのでマップ解除
+
+	// 頂点バッファビューの生成
+	// 頂点バッファビューとは、頂点バッファ全体のバイト数、1頂点当たりのバイト数を知らせるデータ
+	D3D12_VERTEX_BUFFER_VIEW vbView = {};
+	vbView.BufferLocation = vertBuffer->GetGPUVirtualAddress();   // バッファの仮想アドレス取得
+	vbView.SizeInBytes = sizeof(vertices);                        // 全バイト数
+	vbView.StrideInBytes = sizeof(vertices[0]);                   // 1頂点辺りのバイト数
+
+	// シェーダーオブジェクトの生成
+
 
 	// メッセージループ
 	MSG msg = {};
