@@ -1,13 +1,20 @@
+#include "BasicShaderHeader.hlsli"
+
 // ピクセルシェーダー
 // 頂点シェーダーから渡された座標情報を変換し、レンダーターゲットへ色情報として渡す
-float4 BasicPS(float4 pos : SV_POSITION) : SV_TARGET
-{
-	// SV_POSITIONはスクリーン座標
-	float screenW = 1600.0f;
-    float screenH = 900.0f;
+//float4 BasicPS(float4 pos : SV_POSITION) : SV_TARGET
+//{
+//	// SV_POSITIONはスクリーン座標
+//	float screenW = 1600.0f;
+//    float screenH = 900.0f;
+//
+//	return float4(pos.x / screenW, pos.y / screenH, 0.5f, 1.0f);
+//	//return float4(1.0f, 1.0f, 1.0f, 1.0f);
+//}
 
-	return float4(pos.x / screenW, pos.y / screenH, 0.5f, 1.0f);
-	//return float4(1.0f, 1.0f, 1.0f, 1.0f);
+float4 BasicPS(Output _input) : SV_TARGET
+{
+	return float4(_input.uv, 1.0f, 1.0f);
 }
 
 //struct Input

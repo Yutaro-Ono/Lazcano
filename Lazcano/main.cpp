@@ -14,6 +14,7 @@
 #include <iostream>
 #endif
 #include <DirectXMath.h>   // 数学ライブラリ
+#include <vector>
 
 using namespace std;
 
@@ -245,14 +246,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// ウィンドウ表示
 	ShowWindow(hwnd, SW_SHOW);
 
-	// 頂点の生成
-	// 時計回りになるように頂点を定義
-	DirectX::XMFLOAT3 vertices[] =
+	// 頂点配列
+	struct Vertex
 	{
-		{ -0.4f, -0.7f, 0.0f },   // 左下 index:0
-		{ -0.4f,  0.7f, 0.0f },   // 左上 index:1
-		{  0.4f, -0.7f, 0.0f },   // 右上 index:2
-		{  0.4f,  0.7f, 0.0f },   // 右下 index:3
+		DirectX::XMFLOAT3 pos;   // 頂点座標(xyz)
+		DirectX::XMFLOAT2 uv;    // UV座標
+	};
+	
+	// 時計回りになるように頂点を定義
+	Vertex vertices[] =
+	{
+		{{ -0.4f, -0.7f, 0.0f }, {0.0f, 1.0f}},  // 左下 index:0
+		{{ -0.4f,  0.7f, 0.0f }, {0.0f, 0.0f}},  // 左上 index:1
+		{{  0.4f, -0.7f, 0.0f }, {1.0f, 1.0f}},  // 右上 index:2
+		{{  0.4f,  0.7f, 0.0f }, {1.0f, 0.0f}},  // 右下 index:3
 	};
 	// 頂点バッファ生成用のデータ群を生成
 	// ヒーププロパティ
@@ -285,7 +292,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	);
 
 	// 頂点バッファに頂点情報コピー
-	DirectX::XMFLOAT3* vertMap = nullptr;
+	Vertex* vertMap = nullptr;
 	result = vertBuffer->Map(0, nullptr, (void**)&vertMap);         // バッファの仮想アドレス取得
 	std::copy(std::begin(vertices), std::end(vertices), vertMap);   // マップに頂点情報コピー
 	vertBuffer->Unmap(0, nullptr);                                  // 情報コピーし終えたのでマップ解除
@@ -385,6 +392,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 	{
+		// 座標情報
 		{
 		    "POSITION",                                   // セマンティクス名
 		    0,                                            
@@ -394,7 +402,53 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		    D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
 		    0
 		},
+
+		// UV情報
+		{
+			"TEXCOORD",
+			0,
+			DXGI_FORMAT_R32G32_FLOAT,
+			0,
+			D3D12_APPEND_ALIGNED_ELEMENT,
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+        },
 	};
+
+	// テクスチャデータ(仮)
+	struct TexRGBA
+	{
+		unsigned char R, G, B, A;
+	};
+	std::vector<TexRGBA> textureData(256 * 256);   // 256x256
+	for (auto& rgba : textureData)
+	{
+		rgba.R = rand() % 256;
+		rgba.G = rand() % 256;
+		rgba.B = rand() % 256;
+		rgba.A = 255;
+	}
+	// テクスチャバッファの生成 (WriteToSubresourceで転送)
+	D3D12_HEAP_PROPERTIES texHeapProp = {};
+	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;                          // 特殊設定のためCUSTOM
+	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;   // ライトバック方式
+	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;            // CPUから直接転送のためL0
+	texHeapProp.CreationNodeMask = 0;                                   // 単一アダプタのため
+	texHeapProp.VisibleNodeMask = 0;
+	// テクスチャ用リソース設定
+	D3D12_RESOURCE_DESC texResourceDesk = {};
+	texResourceDesk.Format = DXGI_FORMAT_R8G8B8A8_UNORM;   // RGBAフォーマット
+	texResourceDesk.Width = 256;
+	texResourceDesk.Height = 256;
+	texResourceDesk.DepthOrArraySize = 1;                             // 2Dで配列でもないため1
+	texResourceDesk.SampleDesc.Count = 1;                             // 通常テクスチャのためAAをかけない
+	texResourceDesk.SampleDesc.Quality = 0;                           // 最低クオリティ
+	texResourceDesk.MipLevels = 1;                                    // ミップマップは使用しない
+	texResourceDesk.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;   // 2Dテクスチャ用
+	texResourceDesk.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;            // レイアウトは決めない
+	texResourceDesk.Flags = D3D12_RESOURCE_FLAG_NONE;                 // フラグなし
+	// テクスチャ用リソース生成
+
 
 	// グラフィックスパイプラインの生成
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipeline = {};
